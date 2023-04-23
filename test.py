@@ -98,7 +98,7 @@ if __name__ == '__main__':
     # 生成一段轨迹 然后让ai修改
     bzr = bezierTrajectory()
     # 生成100，200点到600，700的轨迹 点的个数为110个
-    hh = bzr.trackArray([100,200],[600,700],50,6,3,0.4)
+    hh = bzr.trackArray([100,200],[300,700],110,6,3,0.4)
     data = hh['trackArray'].tolist()
 
     # 交给模型去修改为更符合人的轨迹
