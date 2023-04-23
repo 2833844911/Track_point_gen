@@ -1,0 +1,174 @@
+import torch
+from torch import nn
+import json
+import random
+import numpy as np
+from tqdm import tqdm
+import torch.optim as optim
+from torch.utils.data import DataLoader, Dataset
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+dataList = json.load(open('./gj2.json', encoding='utf-8'))
+
+
+maxNum = 90
+
+def getmax(data):
+    maxX = 0
+    maxY = 0
+
+    for i in range(len(data)-maxNum):
+        fd = []
+        for f in range(maxNum):
+            fd.append([data[i+f]['x'], data[i+f]['y']])
+        fd = np.array(fd)
+
+        maxXDx = np.max(fd[:,0])
+        maxXDy = np.max(fd[:, 1])
+
+        minXDx = np.min(fd[:,0])
+        minXDy = np.min(fd[:, 1])
+        maxXDx = maxXDx- minXDx
+        maxXDy = maxXDy- minXDy
+
+        if maxXDx > maxX:
+            maxX = maxXDx
+        if maxXDy > maxY:
+            maxY = maxXDy
+    return maxX, maxY
+
+allMx, allMy = getmax(dataList)
+print("最大xy",allMx, allMy)
+with open('./gjsetting.txt', 'w', encoding='utf-8') as f:
+    f.write(json.dumps({"x":int(allMx), "y":int(allMy)}))
+
+def getDian(data):
+    cd = len(data)
+    data += [[0,0]]*(maxNum-cd)
+    data = np.array(data, dtype=np.double)
+    mx = np.min(data[:,0])
+    my = np.min(data[:,1])
+    data[:cd,0] = ((data[:cd,0] - mx)/ allMx)
+    data[:cd, 1] = ((data[:cd,1] - my)/ allMy)
+    return data.tolist()
+
+
+class modelGj(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.lstmEncode = nn.LSTM(2,50, batch_first=True, bidirectional=True)
+
+
+        self.linDecode = nn.Sequential(
+            nn.Linear(100, 50),
+            nn.Linear(50, 50),
+            nn.Linear(50,2),
+        )
+
+        self.sig = nn.Sigmoid()
+
+
+
+    def forward(self,x):
+        x = x.clone()
+
+        j = []
+        st = 1
+        for _ in range(x.shape[1]//20):
+            j.append(st-1)
+            x[:,st:(st+20),:] = 0
+            st = st+20+1
+            if st >= x.shape[1]:
+                break
+        if x.shape[1]//20 < x.shape[1]/20:
+            j.append(x.shape[1]-1)
+            x[:, st:-1, :] = 0
+
+
+        x2, (_,l) = self.lstmEncode(x)
+        alld = self.linDecode(x2)
+
+        xd = alld[:,:,0]
+        yd = alld[:,:,1]
+
+        xd = self.sig(xd)
+        yd = self.sig(yd)
+        return xd, yd, j
+
+class dataLoad(Dataset):
+    def __init__(self, data):
+        super().__init__()
+        self.length = len(data) - maxNum
+        self.dataList = data
+
+    def __getitem__(self, item):
+        data = []
+        for i in range(item,item+ 90):
+            data.append([self.dataList[i]['x'], self.dataList[i]['y']])
+        d = getDian(data)
+        data = d
+
+        return torch.tensor(data,dtype=torch.float32).to(device)
+    def __len__(self):
+        return self.length
+
+
+class myLoss(nn.Module):
+
+    def __init__(self):
+        super().__init__()
+        self.bzloss = nn.MSELoss()
+    def forward(self,outx, outy, tar, j):
+        ls = torch.mean(torch.abs(outx - tar[:,:,0]))
+        ls2 = torch.mean(torch.abs(outy - tar[:,:,1]))
+
+        sls = torch.mean(torch.abs(outx[:, j] - tar[:, j, 0]))
+        sls2 = torch.mean(torch.abs(outy[:, j] - tar[:, j, 1]))
+
+        fanc = torch.abs(torch.var(outx) - torch.var(tar[:,:,0])) +torch.abs(torch.var(outy) - torch.var(tar[:,:,1]))
+        loss = (ls+ls2 + 0.8*fanc + (sls+sls2) * 8)*10
+        # loss = (ls+ls2 )*10
+        return loss, fanc, ls+ls2, sls+sls2
+
+dm = dataLoad(dataList)
+
+epochs = 200
+
+model = torch.load('./modelyzm3.pth')
+# model = modelGj()
+model.to(device)
+
+# 定义损失函数和优化器
+criterion = myLoss()
+optimizer = optim.Adam(model.parameters(), lr=0.0005)
+max_xl=4000
+for epoch in range(epochs):
+    dataTrain = DataLoader(dm, shuffle=True, batch_size=400)
+
+    dataTrain = tqdm(dataTrain)
+    allloss = 0
+    max_xlk=0
+    flsall = 0
+    lsall = 0
+    psall=0
+    for index,(gj) in enumerate(dataTrain):
+        outx, outy, j = model(gj)
+        loss, fls, ls, ps = criterion(outx, outy, gj, j)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        allloss += loss.item()
+        flsall += fls.item()
+        lsall += ls.item()
+        psall += ps.item()
+
+        dataTrain.set_description(desc="epoch {}, loss {}, fanloss {}, lsloss {}, psloss {}".format(epoch, allloss/(index+1), flsall/(index+1),lsall/(index+1),psall/(index+1)))
+        max_xlk = allloss/(index+1)
+
+    if max_xl > max_xlk:
+        torch.save(model, './modelyzm.pth')
+        max_xl = max_xlk
+
+
+
