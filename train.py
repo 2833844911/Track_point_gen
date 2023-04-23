@@ -10,8 +10,12 @@ from torch.utils.data import DataLoader, Dataset
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 dataList = json.load(open('./gj2.json', encoding='utf-8'))
 
+# 设置训练生成轨迹点的个数范围
+fawei = [30, 150]
 
-maxNum = 90
+
+
+maxNum = fawei[1]+1
 
 def getmax(data):
     maxX = 0
@@ -44,7 +48,7 @@ with open('./gjsetting.txt', 'w', encoding='utf-8') as f:
 
 def getDian(data):
     cd = len(data)
-    data += [[0,0]]*(maxNum-cd)
+    # data += [[0,0]]*(maxNum-cd)
     data = np.array(data, dtype=np.double)
     mx = np.min(data[:,0])
     my = np.min(data[:,1])
@@ -74,13 +78,15 @@ class modelGj(nn.Module):
 
         j = []
         st = 1
-        for _ in range(x.shape[1]//20):
+        buc = 4
+        step = x.shape[1] // buc
+        for _ in range(x.shape[1]//step):
             j.append(st-1)
-            x[:,st:(st+20),:] = 0
-            st = st+20+1
-            if st >= x.shape[1]:
+            x[:,st:(st+step),:] = 0
+            st = st+step+1
+            if st+ step >= x.shape[1]:
                 break
-        if x.shape[1]//20 < x.shape[1]/20:
+        if x.shape[1]//step < x.shape[1]/step:
             j.append(x.shape[1]-1)
             x[:, st:-1, :] = 0
 
@@ -103,7 +109,7 @@ class dataLoad(Dataset):
 
     def __getitem__(self, item):
         data = []
-        for i in range(item,item+ 90):
+        for i in range(item,item+ random.randint(fawei[0], fawei[1])):
             data.append([self.dataList[i]['x'], self.dataList[i]['y']])
         d = getDian(data)
         data = d
@@ -132,6 +138,7 @@ class myLoss(nn.Module):
 
 dm = dataLoad(dataList)
 
+# 训练多少epoch
 epochs = 200
 try:
     model = torch.load('./modelyzm.pth')
@@ -141,10 +148,10 @@ model.to(device)
 
 # 定义损失函数和优化器
 criterion = myLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.0005)
+optimizer = optim.Adam(model.parameters(), lr=0.001)
 max_xl=4000
 for epoch in range(epochs):
-    dataTrain = DataLoader(dm, shuffle=True, batch_size=400)
+    dataTrain = DataLoader(dm, shuffle=True, batch_size=1)
 
     dataTrain = tqdm(dataTrain)
     allloss = 0

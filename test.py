@@ -42,7 +42,7 @@ def showGj(tar,out):
 def getGj(data):
     data = data.copy()
     cd = len(data)
-    data += [[0,0]]*(maxNum-cd)
+    # data += [[0,0]]*(maxNum-cd)
     data = np.array(data, dtype=np.double)
     mx = np.min(data[:,0])
     my = np.min(data[:,1])
@@ -52,12 +52,15 @@ def getGj(data):
 
     d = torch.tensor(dm, dtype=torch.float32).to(device).unsqueeze(0)
     st = 1
-    for _ in range(d.shape[1] // 20):
-        d[:, st:(st + 20), :] = 0
-        st = st + 20 + 1
-        if st >= d.shape[1]:
+    buc = 4
+    step = d.shape[1]//buc
+
+    for _ in range(d.shape[1] // step):
+        d[:, st:(st + step), :] = 0
+        st = st + step + 1
+        if st+ step >= d.shape[1]:
             break
-    if d.shape[1] // 20 < d.shape[1] / 20:
+    if d.shape[1] // step <= d.shape[1] / step:
         d[:, st:-1, :] = 0
 
     outx, outy = mod(d)
@@ -87,18 +90,21 @@ maxNum = 90
 if __name__ == '__main__':
     # dataList = json.load(open('./gj.json', encoding='utf-8'))
     # data = []
-    # start =1490
-    # for i in range(start, start +90):
+    # start =3490
+    # for i in range(start, start +120):
     #     data.append([dataList[i]['x'], dataList[i]['y']])
 
 
-    # 生成一段轨迹 然后让ai修改 但是模型输入点需要为90个点
+    # 生成一段轨迹 然后让ai修改
     bzr = bezierTrajectory()
-    hh = bzr.trackArray([100,200],[950,700],90,6,3,0.4)
+    # 生成100，200点到600，700的轨迹 点的个数为110个
+    hh = bzr.trackArray([100,200],[600,700],50,6,3,0.4)
     data = hh['trackArray'].tolist()
 
-
+    # 交给模型去修改为更符合人的轨迹
     out = getGj(data)
+
+    # 展示效果
     showGj(data, out)
 
 
