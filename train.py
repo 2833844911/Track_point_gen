@@ -133,9 +133,10 @@ class myLoss(nn.Module):
 dm = dataLoad(dataList)
 
 epochs = 200
-
-model = torch.load('./modelyzm3.pth')
-# model = modelGj()
+try:
+    model = torch.load('./modelyzm.pth')
+except:
+    model = modelGj()
 model.to(device)
 
 # 定义损失函数和优化器
