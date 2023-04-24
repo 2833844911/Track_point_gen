@@ -52,7 +52,7 @@ def getGj(data):
 
     d = torch.tensor(dm, dtype=torch.float32).to(device).unsqueeze(0)
     st = 1
-    buc = 4
+    buc = 2
     step = d.shape[1]//buc
 
     for _ in range(d.shape[1] // step):
@@ -90,15 +90,15 @@ maxNum = 90
 if __name__ == '__main__':
     # dataList = json.load(open('./gj.json', encoding='utf-8'))
     # data = []
-    # start =3490
-    # for i in range(start, start +120):
+    # start =5490
+    # for i in range(start, start +50):
     #     data.append([dataList[i]['x'], dataList[i]['y']])
 
 
     # 生成一段轨迹 然后让ai修改
     bzr = bezierTrajectory()
     # 生成100，200点到600，700的轨迹 点的个数为110个
-    hh = bzr.trackArray([100,200],[300,700],110,6,3,0.4)
+    hh = bzr.trackArray([100,200],[600,700],110,6,3,0.4)
     data = hh['trackArray'].tolist()
 
     # 交给模型去修改为更符合人的轨迹

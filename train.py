@@ -60,7 +60,7 @@ def getDian(data):
 class modelGj(nn.Module):
     def __init__(self):
         super().__init__()
-        self.lstmEncode = nn.LSTM(2,50, batch_first=True, bidirectional=True)
+        self.lstmEncode = nn.LSTM(2,50,num_layers=2, batch_first=True, bidirectional=True)
 
 
         self.linDecode = nn.Sequential(
@@ -78,7 +78,7 @@ class modelGj(nn.Module):
 
         j = []
         st = 1
-        buc = 4
+        buc = 2
         step = x.shape[1] // buc
         for _ in range(x.shape[1]//step):
             j.append(st-1)
@@ -125,15 +125,17 @@ class myLoss(nn.Module):
         super().__init__()
         self.bzloss = nn.MSELoss()
     def forward(self,outx, outy, tar, j):
+        # xy坐标差距 使预测点的位置更加准确
         ls = torch.mean(torch.abs(outx - tar[:,:,0]))
         ls2 = torch.mean(torch.abs(outy - tar[:,:,1]))
 
+        # 特点位置点的xy差距 使模型预测的结果需要更加接近这些点
         sls = torch.mean(torch.abs(outx[:, j] - tar[:, j, 0]))
         sls2 = torch.mean(torch.abs(outy[:, j] - tar[:, j, 1]))
 
+        # xy坐标方差差距 使预测点的分布更加准确
         fanc = torch.abs(torch.var(outx) - torch.var(tar[:,:,0])) +torch.abs(torch.var(outy) - torch.var(tar[:,:,1]))
         loss = (ls+ls2 + 0.8*fanc + (sls+sls2) * 8)*10
-        # loss = (ls+ls2 )*10
         return loss, fanc, ls+ls2, sls+sls2
 
 dm = dataLoad(dataList)
