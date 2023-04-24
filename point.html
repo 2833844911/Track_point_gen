@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+
+    #touchArea {
+      width: 100%;
+      height: 100%;
+      background-color: #eee;
+    }
+  </style>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const touchArea = document.getElementById('touchArea');
+      window.points = [];
+
+      touchArea.addEventListener('mousemove', (e) => {
+        e.preventDefault();
+        points.push({ x: e.clientX, y: e.clientY ,time: e.timeStamp});
+      });
+
+
+    });
+  </script>
+</head>
+<body>
+  <div id="touchArea"></div>
+</body>
+</html>
